@@ -32,7 +32,7 @@ export default async function PublicReceiptPage({
         <article className="overflow-hidden rounded-3xl bg-white shadow-[0_24px_80px_rgba(15,23,42,0.10)]">
           <header className="bg-[#103f3b] p-7 text-white sm:p-9">
             <p className="text-sm font-semibold text-teal-200">
-              Common Ground Café
+              Common Ground Cafée
             </p>
             <p className="mt-1 text-xs text-teal-100/60">
               21 Market Street, Singapore 048941

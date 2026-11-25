@@ -54,6 +54,7 @@ const nextConfig: NextConfig = {
     // public, non-secret values that explicitly need to be available in
     // browser code should be added - and those should use the `NEXT_PUBLIC_*`
     // naming convention.
+    NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api',
     FIGMA_CONTENT_API_CONTENT_SYSTEM_ID: process.env.FIGMA_CONTENT_API_CONTENT_SYSTEM_ID,
     FIGMA_CONTENT_API_URL: process.env.FIGMA_CONTENT_API_URL,
     FIGMA_OAUTH_CLIENT_ID: process.env.FIGMA_OAUTH_CLIENT_ID,

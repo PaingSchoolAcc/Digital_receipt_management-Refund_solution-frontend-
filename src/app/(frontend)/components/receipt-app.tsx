@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { Icon, type IconName } from "./icons"
+import { useUserReceipts, useCreateReceipt, useReceipt } from "@/hook/useReceipt"
+import {useMerchantRefunds, useUpdateRefundStatus} from "@/hook/useRefund"
+import {useCashiersByStatus, useCreateApprovalCode, useUpdateCashierStatus,useActiveApprovalCodes} from "@/hook/useMerchant"
+import { Receipt,Refund,RefundStatus,CreateReceiptInput } from "@/types/types"
 
 type Role = "customer" | "cashier" | "merchant" | "admin"
 type Screen = "login" | "register" | "dashboard"
@@ -431,7 +435,7 @@ function AuthScreen({ initialScreen = "login" }: { initialScreen?: Screen }) {
               {screen === "register" && role === "cashier" && (
                 <div className="space-y-4 rounded-2xl border border-teal-100 bg-teal-50/60 p-4">
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label="IC number" placeholder="S1234567A" />
+                    
                     <Field
                       label="Approval code (optional)"
                       placeholder="e.g. CGC-2048"
@@ -541,7 +545,7 @@ const navigation: Record<
       { label: "New receipt", icon: "plus", key: "new" },
       { label: "Receipts", icon: "receipt", key: "receipts" },
       { label: "Import receipts", icon: "import", key: "import" },
-      { label: "Reports", icon: "history", key: "reports" },
+      
     ],
     merchant: [
       { label: "Overview", icon: "grid", key: "overview" },
@@ -959,7 +963,7 @@ function Overview({
       ? [
           ["Pending merchants", "3", "+2 this week", "building"],
           ["Active users", "420", "+8.2%", "users"],
-          ["Receipts today", "2,892", "+12.4%", "receipt"],
+          
           ["Platform volume", "$84k", "+6.8%", "wallet"],
         ]
       : role === "customer"
@@ -1217,6 +1221,10 @@ function Receipts({
       ),
     [query],
   )
+
+  const { data, isLoading, error } = useUserReceipts(2) 
+  console.log({ data, isLoading, error })
+  const rows: Receipt[] = Array.isArray(data) ? data : [];
   return (
     <div
       className={
@@ -1251,7 +1259,7 @@ function Receipts({
               {compact ? title : "Receipt records"}
             </h2>
             <p className="mt-1 text-xs text-slate-400">
-              {filtered.length} records shown
+              {data?.length} records shown
             </p>
           </div>
           <div className="relative">
@@ -1280,51 +1288,66 @@ function Receipts({
                 <th className="px-5 py-3" />
               </tr>
             </thead>
-            <tbody>
-              {filtered
-                .slice(0, compact ? 4 : filtered.length)
-                .map((receipt) => (
-                  <tr
-                    key={receipt.id}
-                    className="border-b border-slate-100 text-sm last:border-0 hover:bg-slate-50/70"
+           <tbody>
+           {isLoading ? (
+            <tr>
+              <td colSpan={7} className="px-5 py-8 text-center text-xs text-slate-400">
+                Loading receipts...
+              </td>
+            </tr>
+          ) : error ? (
+            <tr>
+              <td colSpan={7} className="px-5 py-8 text-center text-xs text-rose-600">
+                Failed to load receipts. Check backend connection.
+              </td>
+            </tr>
+          ) : rows.length === 0 ? (
+            <tr>
+              <td colSpan={7} className="px-5 py-8 text-center text-xs text-slate-400">
+                No receipts found.
+              </td>
+            </tr>
+          ) : (
+            rows.slice(0, compact ? 4 : rows.length).map((d) => (
+              <tr
+                key={d.receipt_id}
+                className="border-b border-slate-100 text-sm last:border-0 hover:bg-slate-50/70"
+              >
+                <td className="px-5 py-4 font-semibold text-teal-700">
+                  {d.receipt_id}
+                </td>
+                <td className="px-5 py-4">
+                  <p className="font-medium text-slate-800">customer name</p>
+                  <p className="text-xs text-slate-400">merchant name</p>
+                </td>
+                <td className="px-5 py-4 text-xs text-slate-500">
+                  {d.issued_at}
+                  <br />
+                  <span className="text-slate-400">{d.issued_at}</span>
+                </td>
+                <td className="px-5 py-4 text-xs text-slate-600">
+                  {d.payment_type}
+                </td>
+                <td className="px-5 py-4 font-semibold">
+                  ${d.total_amount}
+                </td>
+                <td className="px-5 py-4">
+                  <StatusBadge status={d.receipt_status} />
+                </td>
+                <td className="px-5 py-4">
+                  <button
+                    type="button"
+                    onClick={() => selectReceipt(d as unknown as typeof receipts[0])}
+                    className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-teal-700"
                   >
-                    <td className="px-5 py-4 font-semibold text-teal-700">
-                      {receipt.id}
-                    </td>
-                    <td className="px-5 py-4">
-                      <p className="font-medium text-slate-800">
-                        {receipt.customer}
-                      </p>
-                      <p className="text-xs text-slate-400">
-                        {receipt.merchant}
-                      </p>
-                    </td>
-                    <td className="px-5 py-4 text-xs text-slate-500">
-                      {receipt.date}
-                      <br />
-                      <span className="text-slate-400">{receipt.time}</span>
-                    </td>
-                    <td className="px-5 py-4 text-xs text-slate-600">
-                      {receipt.payment}
-                    </td>
-                    <td className="px-5 py-4 font-semibold">
-                      ${receipt.amount.toFixed(2)}
-                    </td>
-                    <td className="px-5 py-4">
-                      <StatusBadge status={receipt.status} />
-                    </td>
-                    <td className="px-5 py-4">
-                      <button
-                        type="button"
-                        onClick={() => selectReceipt(receipt)}
-                        className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-teal-700"
-                      >
-                        <Icon name="chevron" className="size-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
+                    <Icon name="chevron" className="size-4" />
+                  </button>
+                </td>
+              </tr>
+            ))
+          )}
+
+          </tbody>
           </table>
         </div>
         {compact && (
@@ -1580,84 +1603,204 @@ function Approvals({
   role: Role
   notify: (message: string) => void
 }) {
-  const data = role === "admin" ? merchantRequests : cashierRequests
+  const isAdmin = role === "admin"
+
+  const {
+    data: pendingCashiersData,
+    isLoading: isLoadingCashiers,
+    error: cashiersError,
+  } = useCashiersByStatus("pending")
+
+  const { mutate: updateCashierStatus, isPending: isUpdatingCashier } =
+    useUpdateCashierStatus()
+
+  const pendingCashiers: CashierUser[] = Array.isArray(pendingCashiersData)
+    ? pendingCashiersData
+    : []
+
+  const handleCashierDecision = (cashier: CashierUser, approved: boolean) => {
+    updateCashierStatus(
+      { userId: cashier.user_id, approved },
+      {
+        onSuccess: (res) => {
+          notify(
+            res?.message ??
+              `${cashier.name} ${approved ? "approved" : "rejected"}`,
+          )
+        },
+        onError: () => {
+          notify(
+            `Failed to ${approved ? "approve" : "reject"} ${cashier.name}`,
+          )
+        },
+      },
+    )
+  }
+
   return (
     <>
       <PageHeader
         eyebrow="Action required"
-        title={role === "admin" ? "Merchant approvals" : "Cashier approvals"}
+        title={isAdmin ? "Merchant approvals" : "Cashier approvals"}
         description={
-          role === "admin"
+          isAdmin
             ? "Review business information before activating merchant access."
             : "Review people requesting to work under your merchant account."
         }
       />
-      <div className="grid gap-4">
-        {data.map((request) => (
-          <div
-            key={request.name}
-            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-          >
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-              <div className="grid size-12 place-items-center rounded-xl bg-teal-50 font-bold text-teal-700">
-                {request.name
-                  .split(" ")
-                  .map((part) => part[0])
-                  .slice(0, 2)
-                  .join("")}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <h2 className="font-semibold">{request.name}</h2>
-                  {"risk" in request && <StatusBadge status={request.risk} />}
+
+      {isAdmin ? (
+        <div className="grid gap-4">
+          {merchantRequests.map((request) => (
+            <div
+              key={request.name}
+              className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+            >
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+                <div className="grid size-12 place-items-center rounded-xl bg-teal-50 font-bold text-teal-700">
+                  {request.name
+                    .split(" ")
+                    .map((part) => part[0])
+                    .slice(0, 2)
+                    .join("")}
                 </div>
-                <p className="mt-1 text-xs text-slate-500">
-                  {"owner" in request
-                    ? `${request.owner} · ${request.uen}`
-                    : `IC ${request.ic} · Code: ${request.code}`}
-                </p>
-                <p className="mt-1 text-[11px] text-slate-400">
-                  Submitted {request.date}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => notify(`${request.name} rejected`)}
-                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600"
-                >
-                  Reject
-                </button>
-                <button
-                  type="button"
-                  onClick={() => notify(`${request.name} approved`)}
-                  className="flex items-center gap-2 rounded-xl bg-teal-700 px-4 py-2.5 text-xs font-semibold text-white"
-                >
-                  <Icon name="check" className="size-4" />
-                  Approve
-                </button>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <h2 className="font-semibold">{request.name}</h2>
+                    <StatusBadge status={request.risk} />
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {request.owner} · {request.uen}
+                  </p>
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    Submitted {request.date}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => notify(`${request.name} rejected`)}
+                    className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600"
+                  >
+                    Reject
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => notify(`${request.name} approved`)}
+                    className="flex items-center gap-2 rounded-xl bg-teal-700 px-4 py-2.5 text-xs font-semibold text-white"
+                  >
+                    <Icon name="check" className="size-4" />
+                    Approve
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : isLoadingCashiers ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-400 shadow-sm">
+          Loading pending cashier requests...
+        </div>
+      ) : cashiersError ? (
+        <div className="rounded-2xl border border-rose-200 bg-white p-8 text-center text-sm text-rose-600 shadow-sm">
+          Failed to load pending cashiers. Check backend connection.
+        </div>
+      ) : pendingCashiers.length === 0 ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-400 shadow-sm">
+          No pending cashier approvals.
+        </div>
+      ) : (
+        <div className="grid gap-4">
+          {pendingCashiers.map((cashier) => {
+            const initials = (cashier.name || "C")
+              .split(" ")
+              .filter(Boolean)
+              .map((part) => part[0])
+              .slice(0, 2)
+              .join("")
+              .toUpperCase()
+
+            const createdDate = new Date(cashier.created_at)
+            const formattedDate = Number.isNaN(createdDate.getTime())
+              ? cashier.created_at
+              : createdDate.toLocaleDateString("en-SG", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })
+
+            return (
+              <div
+                key={cashier.user_id}
+                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+              >
+                <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+                  <div className="grid size-12 place-items-center rounded-xl bg-teal-50 font-bold text-teal-700">
+                    {initials}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="font-semibold">{cashier.name}</h2>
+                      <StatusBadge status={String(cashier.account_status)} />
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {cashier.email}
+                      {cashier.phone_number ? ` · ${cashier.phone_number}` : ""}
+                      {cashier.merchant_to_work_under
+                        ? ` · Merchant #${cashier.merchant_to_work_under}`
+                        : ""}
+                    </p>
+                    <p className="mt-1 text-[11px] text-slate-400">
+                      Submitted {formattedDate}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={isUpdatingCashier}
+                      onClick={() => handleCashierDecision(cashier, false)}
+                      className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                    >
+                      Reject
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isUpdatingCashier}
+                      onClick={() => handleCashierDecision(cashier, true)}
+                      className="flex items-center gap-2 rounded-xl bg-teal-700 px-4 py-2.5 text-xs font-semibold text-white hover:bg-teal-800 disabled:opacity-50"
+                    >
+                      <Icon name="check" className="size-4" />
+                      Approve
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </>
   )
 }
-
 function Cashiers({
-  cashiers,
   openApprovalCodes,
   openCreateCashier,
-  cashierStorageError,
-  cashiersLoaded,
 }: {
-  cashiers: MerchantCashier[]
   openApprovalCodes: () => void
   openCreateCashier: () => void
-  cashierStorageError: string
-  cashiersLoaded: boolean
 }) {
+  const {
+    data: cashierList,
+    isLoading,
+    error,
+  } = useCashiersByStatus("active")
+
+  const cashiers: CashierUser[] = Array.isArray(cashierList) ? cashierList : []
+
+  const activeCount = cashiers.filter(
+    (cashier) => String(cashier.account_status).toLowerCase() === "active",
+  ).length
+
   return (
     <>
       <PageHeader
@@ -1668,8 +1811,7 @@ function Cashiers({
         <button
           type="button"
           onClick={openCreateCashier}
-          disabled={!cashiersLoaded || Boolean(cashierStorageError)}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800"
         >
           <Icon name="plus" className="size-4" />
           Create cashier
@@ -1683,28 +1825,22 @@ function Cashiers({
           Approval codes
         </button>
       </PageHeader>
-      {cashierStorageError && (
-        <p
-          role="alert"
-          className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
-        >
-          {cashierStorageError}
-        </p>
-      )}
+
       <div className="mb-5 grid gap-4 sm:grid-cols-2">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-sm text-slate-500">Registered cashiers</p>
           <p className="mt-2 text-2xl font-semibold text-slate-900">
-            {cashiers.length}
+            {isLoading ? "—" : cashiers.length}
           </p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-sm text-slate-500">Active cashiers</p>
           <p className="mt-2 text-2xl font-semibold text-slate-900">
-            {cashiers.filter((cashier) => cashier.status === "Active").length}
+            {isLoading ? "—" : activeCount}
           </p>
         </div>
       </div>
+
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-left">
@@ -1714,33 +1850,75 @@ function Cashiers({
                 <th className="px-5 py-3">Phone</th>
                 <th className="px-5 py-3">IC number</th>
                 <th className="px-5 py-3">Status</th>
-                <th className="px-5 py-3">Last active</th>
+                <th className="px-5 py-3">Joined</th>
               </tr>
             </thead>
             <tbody>
-              {cashiers.map((cashier) => (
-                <tr
-                  key={cashier.id ?? cashier.email}
-                  className="border-t border-slate-100 text-sm"
-                >
-                  <td className="px-5 py-4">
-                    <p className="font-semibold text-slate-800">
-                      {cashier.name}
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      {cashier.email || "Created by merchant"}
-                    </p>
-                  </td>
-                  <td className="px-5 py-4 text-slate-600">{cashier.phone}</td>
-                  <td className="px-5 py-4 text-slate-600">{cashier.ic}</td>
-                  <td className="px-5 py-4">
-                    <StatusBadge status={cashier.status} />
-                  </td>
-                  <td className="px-5 py-4 text-xs text-slate-500">
-                    {cashier.lastActive}
+              {isLoading ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-5 py-8 text-center text-xs text-slate-400"
+                  >
+                    Loading cashiers...
                   </td>
                 </tr>
-              ))}
+              ) : error ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-5 py-8 text-center text-xs text-rose-600"
+                  >
+                    Failed to load cashiers. Check backend connection.
+                  </td>
+                </tr>
+              ) : cashiers.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-5 py-8 text-center text-xs text-slate-400"
+                  >
+                    No active cashiers found.
+                  </td>
+                </tr>
+              ) : (
+                cashiers.map((cashier) => {
+                  const createdDate = new Date(cashier.created_at)
+                  const formattedJoined = Number.isNaN(createdDate.getTime())
+                    ? "—"
+                    : createdDate.toLocaleDateString("en-SG", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })
+
+                  return (
+                    <tr
+                      key={cashier.user_id}
+                      className="border-t border-slate-100 text-sm"
+                    >
+                      <td className="px-5 py-4">
+                        <p className="font-semibold text-slate-800">
+                          {cashier.name}
+                        </p>
+                        <p className="text-xs text-slate-400">
+                          {cashier.email || `User #${cashier.user_id}`}
+                        </p>
+                      </td>
+                      <td className="px-5 py-4 text-slate-600">
+                        {cashier.phone_number || "—"}
+                      </td>
+                      <td className="px-5 py-4 text-slate-600">—</td>
+                      <td className="px-5 py-4">
+                        <StatusBadge status={String(cashier.account_status)} />
+                      </td>
+                      <td className="px-5 py-4 text-xs text-slate-500">
+                        {formattedJoined}
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
             </tbody>
           </table>
         </div>
@@ -1914,16 +2092,41 @@ function CreateCashierDrawer({
     </div>
   )
 }
-
 function ApprovalCodesDrawer({
-  codes,
   onClose,
-  onGenerate,
+  notify,
 }: {
-  codes: MerchantApprovalCode[]
   onClose: () => void
-  onGenerate: () => void
+  notify?: (message: string) => void
 }) {
+  const {
+    data: codesData,
+    isLoading,
+    error,
+  } = useActiveApprovalCodes()
+
+  const { mutate: createApprovalCode, isPending: isGenerating } =
+    useCreateApprovalCode()
+
+  const codes: ApprovalCode[] = Array.isArray(codesData) ? codesData : []
+
+  const handleGenerate = () => {
+    createApprovalCode(undefined, {
+      onSuccess: (res) => {
+        const createdCode = res?.data?.approval_code
+        notify?.(
+          res?.message ??
+            (createdCode
+              ? `Generated approval code ${createdCode}`
+              : "Approval code generated"),
+        )
+      },
+      onError: () => {
+        notify?.("Failed to generate approval code. Check backend connection.")
+      },
+    })
+  }
+
   return (
     <div className="fixed inset-0 z-50">
       <button
@@ -1965,58 +2168,67 @@ function ApprovalCodesDrawer({
             Share a new code with a cashier so they can enter it when
             registering under your merchant account.
           </div>
+
           <button
             type="button"
-            onClick={onGenerate}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-teal-700 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800"
+            disabled={isGenerating}
+            onClick={handleGenerate}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-teal-700 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800 disabled:opacity-50"
           >
             <Icon name="plus" className="size-4" />
-            Generate new code
+            {isGenerating ? "Generating..." : "Generate new code"}
           </button>
+
           <div>
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-slate-800">
-                All approval codes
+                Active approval codes
               </h3>
               <span className="text-xs text-slate-400">
-                {codes.length} total
+                {isLoading ? "—" : `${codes.length} total`}
               </span>
             </div>
-            <div className="space-y-3">
-              {codes.map((item) => (
-                <article
-                  key={item.code}
-                  className="rounded-xl border border-slate-200 p-4"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="font-mono text-sm font-semibold tracking-wide text-slate-900">
-                      {item.code}
-                    </p>
-                    <StatusBadge status={item.status} />
-                  </div>
-                  {item.status === "Used" && item.cashier && (
-                    <div className="mt-3 border-t border-slate-100 pt-3">
-                      <p className="text-xs font-medium text-slate-500">
-                        Registered cashier
+
+            {isLoading ? (
+              <div className="rounded-xl border border-slate-200 p-6 text-center text-xs text-slate-400">
+                Loading approval codes...
+              </div>
+            ) : error ? (
+              <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-6 text-center text-xs text-rose-600">
+                Failed to load approval codes. Check backend connection.
+              </div>
+            ) : codes.length === 0 ? (
+              <div className="rounded-xl border border-slate-200 p-6 text-center text-xs text-slate-400">
+                No active approval codes yet. Generate one above.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {codes.map((item) => (
+                  <article
+                    key={item.id ?? item.approval_code}
+                    className="rounded-xl border border-slate-200 p-4"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-mono text-sm font-semibold tracking-wide text-slate-900">
+                        {item.approval_code}
                       </p>
-                      <p className="mt-1 text-sm font-semibold text-slate-800">
-                        {item.cashier.name}
-                      </p>
-                      <p className="text-xs text-slate-400">
-                        {item.cashier.email}
-                      </p>
+                      <StatusBadge status={String(item.status)} />
                     </div>
-                  )}
-                </article>
-              ))}
-            </div>
+                    {item.used_at && (
+                      <p className="mt-2 text-xs text-slate-400">
+                        Used at: {item.used_at}
+                      </p>
+                    )}
+                  </article>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </aside>
     </div>
   )
 }
-
 function Refunds({
   role,
   notify,
@@ -2024,11 +2236,64 @@ function Refunds({
 }: {
   role: Role
   notify: (message: string) => void
-  selectReceipt: (receipt: typeof receipts[0]) => void
+  selectReceipt: (receipt: Receipt) => void
 }) {
-  const pending = receipts.filter((receipt) =>
-    receipt.status.includes("pending"),
-  )
+  const merchantId = 2
+  const {
+    data: refundList,
+    isLoading,
+    error,
+  } = useMerchantRefunds(role === "merchant" ? merchantId : undefined)
+  const { mutate: updateRefundStatus, isPending: isUpdating } =
+    useUpdateRefundStatus()
+
+  const refunds = Array.isArray(refundList) ? refundList : []
+
+  const handleDecision = (refund: Refund, approved: boolean) => {
+    updateRefundStatus(
+      { receiptId: refund.receipt_id, approved },
+      {
+        onSuccess: (res) => {
+          notify(
+            res?.message ??
+              `Refund for RCP-${refund.receipt_id} ${
+                approved ? "approved" : "rejected"
+              }`,
+          )
+        },
+        onError: () => {
+          notify(
+            `Failed to ${approved ? "approve" : "reject"} refund for RCP-${refund.receipt_id}`,
+          )
+        },
+      },
+    )
+  }
+
+  const handleViewReceipt = (refund: Refund) => {
+    const requestedDate = new Date(refund.requested_at)
+    const fallbackIssuedAt = Number.isNaN(requestedDate.getTime())
+      ? new Date().toISOString()
+      : refund.requested_at
+
+    selectReceipt({
+      receipt_id: refund.receipt_id,
+      merchant_id: refund.merchant_id,
+      customer_id: refund.customer_id,
+      cashier_id: null,
+      payment_type: "PayNow",
+      issued_at: fallbackIssuedAt,
+      items: [],
+      total_amount: refund.refund_amount,
+      receipt_status:
+        refund.refund_status === "approved"
+          ? "refunded"
+          : refund.refund_status === "rejected"
+            ? "refund_rejected"
+            : "issued",
+    } as Receipt)
+  }
+
   return (
     <>
       <PageHeader
@@ -2042,62 +2307,110 @@ function Refunds({
             : "Review supporting receipt and customer details before deciding."
         }
       />
-      <div className="grid gap-5">
-        {pending.concat(receipts[2]).map((receipt, index) => (
-          <article
-            key={`${receipt.id}-${index}`}
-            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-          >
-            <div className="flex flex-col gap-5 md:flex-row md:items-center">
-              <div className="grid size-12 place-items-center rounded-xl bg-amber-50 text-amber-700">
-                <Icon name="refund" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="font-semibold">{receipt.id}</h2>
-                  <StatusBadge
-                    status={index === 0 ? "Refund pending" : "Review"}
-                  />
+
+      {isLoading ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-400 shadow-sm">
+          Loading refund requests...
+        </div>
+      ) : error ? (
+        <div className="rounded-2xl border border-rose-200 bg-white p-8 text-center text-sm text-rose-600 shadow-sm">
+          Failed to load refund requests. Check backend connection.
+        </div>
+      ) : refunds.length === 0 ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-400 shadow-sm">
+          No refund requests found.
+        </div>
+      ) : (
+        <div className="grid gap-5">
+          {refunds.map((refund) => {
+            const amountNum = Number(refund.refund_amount ?? 0)
+            const formattedAmount = Number.isNaN(amountNum)
+              ? "0.00"
+              : amountNum.toFixed(2)
+
+            const requestedDate = new Date(refund.requested_at)
+            const formattedDate = Number.isNaN(requestedDate.getTime())
+              ? refund.requested_at
+              : requestedDate.toLocaleDateString("en-SG", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })
+
+            const isActionable =
+              role !== "customer" &&
+              String(refund.refund_status).toLowerCase() === "pending"
+
+            return (
+              <article
+                key={refund.refund_id}
+                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+              >
+                <div className="flex flex-col gap-5 md:flex-row md:items-center">
+                  <div className="grid size-12 place-items-center rounded-xl bg-amber-50 text-amber-700">
+                    <Icon name="refund" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="font-semibold">
+                        RCP-{refund.receipt_id}
+                      </h2>
+                      <StatusBadge status={String(refund.refund_status)} />
+                      <span className="text-xs text-slate-400">
+                        Refund #{refund.refund_id}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-slate-600">
+                      Customer #{refund.customer_id} · Merchant #
+                      {refund.merchant_id}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      {refund.refund_reason || "No reason provided"} ·{" "}
+                      {formattedDate}
+                    </p>
+                  </div>
+                  <div className="text-left md:text-right">
+                    <p className="text-xl font-semibold">${formattedAmount}</p>
+                    <p className="text-xs text-slate-400">Requested amount</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleViewReceipt(refund)}
+                      className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                    >
+                      View receipt
+                    </button>
+                    {isActionable && (
+                      <>
+                        <button
+                          type="button"
+                          disabled={isUpdating}
+                          onClick={() => handleDecision(refund, false)}
+                          className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                        >
+                          Reject
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isUpdating}
+                          onClick={() => handleDecision(refund, true)}
+                          className="rounded-xl bg-teal-700 px-4 py-2.5 text-xs font-semibold text-white hover:bg-teal-800 disabled:opacity-50"
+                        >
+                          Approve
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
-                <p className="mt-1 text-sm text-slate-600">
-                  {receipt.customer} · {receipt.merchant}
-                </p>
-                <p className="mt-1 text-xs text-slate-400">
-                  Requested for duplicate charge · {receipt.date}
-                </p>
-              </div>
-              <div className="text-left md:text-right">
-                <p className="text-xl font-semibold">
-                  ${receipt.amount.toFixed(2)}
-                </p>
-                <p className="text-xs text-slate-400">Requested amount</p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => selectReceipt(receipt)}
-                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600"
-                >
-                  View receipt
-                </button>
-                {role !== "customer" && (
-                  <button
-                    type="button"
-                    onClick={() => notify(`Refund for ${receipt.id} approved`)}
-                    className="rounded-xl bg-teal-700 px-4 py-2.5 text-xs font-semibold text-white"
-                  >
-                    Approve
-                  </button>
-                )}
-              </div>
-            </div>
-          </article>
-        ))}
-      </div>
+              </article>
+            )
+          })}
+        </div>
+      )}
     </>
   )
 }
-
 function Reports({ notify }: { notify: (message: string) => void }) {
   return (
     <>
@@ -2303,16 +2616,78 @@ function AuditLog() {
     </>
   )
 }
-
 function ReceiptDrawer({
   receipt,
   onClose,
   notify,
 }: {
-  receipt: typeof receipts[0]
+  receipt: Receipt
   onClose: () => void
   notify: (message: string) => void
 }) {
+  const { data: detailedReceipt } = useReceipt(receipt.receipt_id)
+  const activeReceipt = detailedReceipt ?? receipt
+
+  const totalAmount = Number(activeReceipt.total_amount ?? 0)
+  const formattedTotal = Number.isNaN(totalAmount) ? "0.00" : totalAmount.toFixed(2)
+  const issuedDate = new Date(activeReceipt.issued_at)
+  const hasValidDate = !Number.isNaN(issuedDate.getTime())
+
+  const dateLabel = hasValidDate
+    ? issuedDate.toLocaleDateString("en-SG", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : "14 May 2025"
+
+  const timeLabel = hasValidDate
+    ? issuedDate.toLocaleTimeString("en-SG", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "10:42 AM"
+
+  const itemsList =
+    Array.isArray(activeReceipt.items) && activeReceipt.items.length > 0
+      ? activeReceipt.items.map((item, idx) => ({
+          key: `${idx}`,
+          name:
+            typeof (item as { name?: unknown }).name === "string"
+              ? (item as { name: string }).name
+              : `Item #${idx + 1}`,
+          quantity:
+            typeof (item as { quantity?: unknown }).quantity === "number" ||
+            typeof (item as { quantity?: unknown }).quantity === "string"
+              ? String((item as { quantity: number | string }).quantity)
+              : "1",
+          price:
+            typeof (item as { price?: unknown }).price === "number" ||
+            typeof (item as { price?: unknown }).price === "string"
+              ? `$${Number((item as { price: number | string }).price).toFixed(2)}`
+              : `$${formattedTotal}`,
+        }))
+      : [
+          {
+            key: "fallback-1",
+            name: "Iced oat latte",
+            quantity: "2",
+            price: "$15.00",
+          },
+          {
+            key: "fallback-2",
+            name: "Almond croissant",
+            quantity: "1",
+            price: "$5.80",
+          },
+          {
+            key: "fallback-3",
+            name: "Service & tax",
+            quantity: "—",
+            price: `$${Math.max(0, totalAmount - 20.8).toFixed(2)}`,
+          },
+        ]
+
   return (
     <div
       className="fixed inset-0 z-50 flex justify-end bg-slate-950/30 backdrop-blur-sm"
@@ -2326,7 +2701,9 @@ function ReceiptDrawer({
             <p className="text-xs font-bold uppercase tracking-wider text-teal-700">
               Digital receipt
             </p>
-            <h2 className="mt-1 text-2xl font-semibold">{receipt.id}</h2>
+            <h2 className="mt-1 text-2xl font-semibold">
+              RCP-{activeReceipt.receipt_id}
+            </h2>
           </div>
           <button
             type="button"
@@ -2339,26 +2716,31 @@ function ReceiptDrawer({
         <div className="mt-8 rounded-2xl bg-[#103f3b] p-6 text-white">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-lg font-semibold">{receipt.merchant}</p>
+              <p className="text-lg font-semibold">
+                Common Ground Café #{activeReceipt.merchant_id}
+              </p>
               <p className="mt-1 text-xs text-teal-100/60">
                 21 Market Street, Singapore
               </p>
             </div>
-            <StatusBadge status={receipt.status} />
+            <StatusBadge status={String(activeReceipt.receipt_status)} />
           </div>
           <p className="mt-8 text-sm text-teal-100/70">Total paid</p>
-          <p className="mt-1 text-4xl font-semibold">
-            ${receipt.amount.toFixed(2)}
-          </p>
+          <p className="mt-1 text-4xl font-semibold">${formattedTotal}</p>
         </div>
         <div className="mt-7 grid grid-cols-2 gap-4">
           {[
-            ["Customer", receipt.customer],
-            ["Cashier", receipt.cashier],
-            ["Date", receipt.date],
-            ["Time", receipt.time],
-            ["Payment", receipt.payment],
-            ["Status", receipt.status],
+            ["Customer", `Customer #${activeReceipt.customer_id}`],
+            [
+              "Cashier",
+              activeReceipt.cashier_id
+                ? `Cashier #${activeReceipt.cashier_id}`
+                : "Daniel Lim",
+            ],
+            ["Date", dateLabel],
+            ["Time", timeLabel],
+            ["Payment", activeReceipt.payment_type || "PayNow"],
+            ["Status", String(activeReceipt.receipt_status)],
           ].map(([label, value]) => (
             <div key={label} className="rounded-xl border border-slate-100 p-4">
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
@@ -2373,16 +2755,8 @@ function ReceiptDrawer({
         <div className="mt-7">
           <h3 className="font-semibold">Items</h3>
           <div className="mt-3 divide-y divide-slate-100 rounded-xl border border-slate-100">
-            {[
-              ["Iced oat latte", "2", "$15.00"],
-              ["Almond croissant", "1", "$5.80"],
-              [
-                "Service & tax",
-                "—",
-                `$${Math.max(0, receipt.amount - 20.8).toFixed(2)}`,
-              ],
-            ].map(([name, quantity, price]) => (
-              <div key={name} className="flex items-center px-4 py-3 text-sm">
+            {itemsList.map(({ key, name, quantity, price }) => (
+              <div key={key} className="flex items-center px-4 py-3 text-sm">
                 <span className="flex-1">{name}</span>
                 <span className="w-12 text-slate-400">× {quantity}</span>
                 <span className="font-semibold">{price}</span>
@@ -2410,7 +2784,7 @@ function ReceiptDrawer({
         </div>
         <p className="mt-5 text-center text-[10px] leading-4 text-slate-400">
           Public verification URL: receiptiq.app/receipt/
-          {receipt.id.toLowerCase()}
+          {activeReceipt.receipt_id}
         </p>
       </aside>
     </div>

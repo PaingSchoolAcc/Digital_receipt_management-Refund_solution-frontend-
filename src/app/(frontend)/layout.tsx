@@ -7,7 +7,7 @@ import {
   sanitizeHtmlAttribute,
 } from "@/lib/make-site-settings"
 import "./styles.css"
-
+import Providers from "./provider";
 const defaultTitle = "Receiptiq — Smart receipt cloud"
 const title = makeSiteSettings.title ?? defaultTitle
 const description =
@@ -66,7 +66,8 @@ export default function RootLayout({
           </a>
         )}
         <div id="root" tabIndex={-1}>
-          {children}
+          <Providers>{children}</Providers>
+          
         </div>
         {googleAnalyticsId && (
           <>
